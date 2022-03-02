@@ -1,15 +1,16 @@
 const CANVAS_ID = "html-canvas"
-const SWATCH_ID = "color-swatch"
+const CURSOR_SWATCH_ID = "cursor-color-swatch"
 const SWATCH_WIDTH = 50
 const SIDEPANEL_ID = "color-palette-sidepanel"
 
 const styles = `
-  #${SWATCH_ID} {
+  #${CURSOR_SWATCH_ID} {
     position: fixed;
     top: 0px;
     left: 0px;
     z-index: 10000000;
   }
+
   .color-circle {
     box-shadow: 0px 0px 8px 3px rgba(0, 0, 0, 0.1);
     background-color: white;
@@ -72,6 +73,12 @@ const styles = `
   .palette:hover {
     background-color: #F8F8F8;
   }
+  .swatch-color-circle {
+    display: none;
+  }
+  .active-palette .swatch-color-circle {
+    display: inline-block;
+  }
   .active-palette {
     background-color: #F8F8F8;
     font-weight: bold;
@@ -116,12 +123,43 @@ const styles = `
   }
 `
 
-const createPaletteElement = ({ name, colors }, idx, palettes) => {
+const createColorDiv = (color, parentPalette, palettes) => {
+  const colorDiv = document.createElement("div")
+  colorDiv.classList.add("color-circle")
+  colorDiv.style.backgroundColor = color
+
+  const deleteButton = document.createElement("div")
+  deleteButton.classList.add("delete-color-button", "delete-button", "hidden")
+  deleteButton.innerText = "x"
+  deleteButton.addEventListener("click", () => {
+    const newPalettes = palettes.map((p) => {
+      if (p.name !== parentPalette.name) {
+        return p
+      }
+      const newPalette = { ...p }
+      newPalette.colors = newPalette.colors.filter((c) => c !== color)
+      return newPalette
+    })
+    chrome.storage.sync.set({ palettes: newPalettes }, () => colorDiv.remove())
+  })
+  colorDiv.addEventListener("click", () => navigator.clipboard.writeText(color))
+  colorDiv.addEventListener("mouseenter", () => {
+    deleteButton.classList.remove("hidden")
+  })
+  colorDiv.addEventListener("mouseleave", () => {
+    deleteButton.classList.add("hidden")
+  })
+  colorDiv.appendChild(deleteButton)
+  return colorDiv
+}
+
+const createPaletteElement = (
+  { name, colors },
+  palettes,
+  palettesContainer
+) => {
   const paletteDiv = document.createElement("div")
   paletteDiv.classList.add("palette")
-  if (idx === 0) {
-    paletteDiv.classList.add("active-palette")
-  }
 
   const paletteTitle = document.createElement("p")
   paletteTitle.classList.add("palette-title")
@@ -135,10 +173,14 @@ const createPaletteElement = ({ name, colors }, idx, palettes) => {
   deletePaletteButton.innerText = "x"
   deletePaletteButton.addEventListener("click", () => {
     const newPalettes = palettes.filter((p) => p.name !== name)
-    chrome.storage.sync.set({ palettes: newPalettes }, () =>
+    chrome.storage.sync.set({ palettes: newPalettes }, () => {
+      if (paletteDiv.classList.contains("active-palette")) {
+        palettesContainer
+          .querySelector(".palette:not(.active-palette)")
+          ?.classList.add("active-palette")
+      }
       paletteDiv.remove()
-    )
-    paletteDiv.remove()
+    })
   })
   const paletteHeader = document.createElement("div")
   paletteHeader.classList.add("palette-header")
@@ -158,38 +200,63 @@ const createPaletteElement = ({ name, colors }, idx, palettes) => {
   paletteDiv.appendChild(colorsContainer)
 
   colors.forEach((color) => {
-    const colorDiv = document.createElement("div")
-    colorDiv.classList.add("color-circle")
-    colorDiv.style.backgroundColor = color
+    const colorDiv = createColorDiv(color, { name, colors }, palettes)
+    colorsContainer.appendChild(colorDiv)
+  })
 
-    const deleteButton = document.createElement("div")
-    deleteButton.classList.add("delete-color-button", "delete-button", "hidden")
-    deleteButton.innerText = "x"
-    deleteButton.addEventListener("click", () => {
+  const swatchColorCircle = document.createElement("div")
+  swatchColorCircle.classList.add("color-circle", "swatch-color-circle")
+  colorsContainer.appendChild(swatchColorCircle)
+
+  paletteDiv.addEventListener("click", () => {
+    if (paletteDiv.classList.contains("active-palette")) {
+      return
+    }
+    palettesContainer
+      .querySelector(".active-palette")
+      ?.classList.remove("active-palette")
+
+    paletteDiv.classList.add("active-palette")
+  })
+  document.addEventListener("click", (ev) => {
+    if (ev.pageX > document.body.clientWidth) {
+      return
+    }
+    if (paletteDiv.classList.contains("active-palette")) {
+      const newColor = getColorAt(ev.pageX, ev.pageY)
+
       const newPalettes = palettes.map((p) => {
         if (p.name !== name) {
           return p
         }
         const newPalette = { ...p }
-        newPalette.colors = newPalette.colors.filter((c) => c !== color)
+        newPalette.colors = [...newPalette.colors, newColor]
         return newPalette
       })
-      chrome.storage.sync.set({ palettes: newPalettes }, () =>
-        colorDiv.remove()
-      )
-    })
-    colorDiv.addEventListener("mouseenter", () => {
-      deleteButton.classList.remove("hidden")
-    })
-    colorDiv.addEventListener("mouseleave", () => {
-      deleteButton.classList.add("hidden")
-    })
-    colorDiv.appendChild(deleteButton)
-
-    colorsContainer.appendChild(colorDiv)
+      navigator.clipboard.writeText(newColor)
+      chrome.storage.sync.set({ palettes: newPalettes }, () => {
+        const newColorDiv = createColorDiv(
+          newColor,
+          { name, colors },
+          newPalettes
+        )
+        colorsContainer.insertBefore(newColorDiv, swatchColorCircle)
+      })
+    }
   })
-
   return paletteDiv
+}
+
+const renderPalettes = (palettes, parentDiv) => {
+  if (palettes.length) {
+    palettes.forEach((palette, idx) => {
+      const paletteDiv = createPaletteElement(palette, palettes, parentDiv)
+      if (idx === 0) {
+        paletteDiv.classList.add("active-palette")
+      }
+      parentDiv.appendChild(paletteDiv)
+    })
+  }
 }
 
 // TODO - remove these
@@ -199,14 +266,14 @@ const MOCK_PALETTES = [
 ]
 
 const cleanUp = () => {
-  document.getElementById(SWATCH_ID).remove()
+  document.getElementById(CURSOR_SWATCH_ID).remove()
   document.getElementById(CANVAS_ID)?.remove()
   document.getElementById(SIDEPANEL_ID)?.remove()
   document.body.style.width = "100%"
 }
 
 chrome.runtime.onMessage.addListener(() => {
-  if (document.getElementById(SWATCH_ID)) {
+  if (document.getElementById(CURSOR_SWATCH_ID)) {
     // TODO - remove event handlers
     cleanUp()
     return
@@ -239,6 +306,29 @@ chrome.runtime.onMessage.addListener(() => {
   palettesContainer.classList.add("palettes-container")
 
   sidepanel.appendChild(sidepanelHeader)
+  const addPaletteButton = document.createElement("button")
+  addPaletteButton.classList.add("add-palette-button")
+  addPaletteButton.innerText = "+"
+  addPaletteButton.addEventListener("click", () => {
+    const maxPaletteNumber = palettes
+      .map(({ name }) => name)
+      .filter((name) => name.includes("palette"))
+      .map((name) => name.split(" ")[name.split(" ").length - 1])
+      .reduce((acc, curr) => Math.max(acc, curr), 0)
+    const newPalette = { name: `palette ${maxPaletteNumber + 1}`, colors: [] }
+    const newPalettes = [newPalette, ...palettes]
+
+    chrome.storage.sync.set({ palettes: newPalettes }, () => {
+      const newPaletteDiv = createPaletteElement(
+        newPalette,
+        palettes.length,
+        newPalettes,
+        palettesContainer
+      )
+      palettesContainer.prepend(newPaletteDiv)
+    })
+  })
+  sidepanelHeader.appendChild(addPaletteButton)
   sidepanel.appendChild(palettesContainer)
 
   document.body.appendChild(sidepanel)
@@ -246,40 +336,12 @@ chrome.runtime.onMessage.addListener(() => {
   // fill sidepanel with saved palettes
   chrome.storage.sync.get(["palettes"], function (result) {
     const palettes = result.palettes || []
-    if (palettes.length) {
-      palettes.forEach((palette, idx) => {
-        const paletteDiv = createPaletteElement(palette, idx, palettes)
-        palettesContainer.appendChild(paletteDiv)
-      })
-    }
-
-    const addPaletteButton = document.createElement("button")
-    addPaletteButton.classList.add("add-palette-button")
-    addPaletteButton.innerText = "+"
-    addPaletteButton.addEventListener("click", () => {
-      const maxPaletteNumber = palettes
-        .map(({ name }) => name)
-        .filter((name) => name.includes("palette"))
-        .map((name) => name.split(" ")[name.split(" ").length - 1])
-        .reduce((acc, curr) => Math.max(acc, curr), 0)
-      const newPalette = { name: `palette ${maxPaletteNumber + 1}`, colors: [] }
-      const newPalettes = [newPalette, ...palettes]
-
-      chrome.storage.sync.set({ palettes: newPalettes }, () => {
-        const newPaletteDiv = createPaletteElement(
-          newPalette,
-          palettes.length,
-          newPalettes
-        )
-        palettesContainer.prepend(newPaletteDiv)
-      })
-    })
-    sidepanelHeader.appendChild(addPaletteButton)
+    renderPalettes(palettes, palettesContainer)
   })
 
   // create swatch element
   const swatchDiv = document.createElement("div")
-  swatchDiv.setAttribute("id", SWATCH_ID)
+  swatchDiv.setAttribute("id", CURSOR_SWATCH_ID)
   swatchDiv.classList.add("color-circle")
   document.body.appendChild(swatchDiv)
 
@@ -291,14 +353,30 @@ chrome.runtime.onMessage.addListener(() => {
       if (ev.pageX > document.body.clientWidth) {
         return
       }
-      const context = document.getElementById(CANVAS_ID).getContext("2d")
-      const data = context.getImageData(ev.pageX * 2, ev.pageY * 2, 1, 1).data
-      const color = `rgb(${data[0]}, ${data[1]}, ${data[2]})`
+      const color = getColorAt(ev.pageX, ev.pageY)
       if (ev.pageX + SWATCH_WIDTH < document.body.clientWidth) {
         swatchDiv.style.left = ev.pageX + "px"
         swatchDiv.style.top = ev.pageY + "px"
       }
+      palettesContainer
+        .querySelectorAll(".swatch-color-circle")
+        .forEach((swatchCircle) => (swatchCircle.style.backgroundColor = color))
       swatchDiv.style.backgroundColor = color
     })
   })
 })
+
+const getColorAt = (pageX, pageY) => {
+  const context = document.getElementById(CANVAS_ID).getContext("2d")
+  const data = context.getImageData(pageX * 2, pageY * 2, 1, 1).data
+  const componentToHex = (c) => {
+    const hex = c.toString(16)
+    return hex.length == 1 ? "0" + hex : hex
+  }
+  return (
+    "#" +
+    componentToHex(data[0]) +
+    componentToHex(data[1]) +
+    componentToHex(data[2])
+  )
+}
