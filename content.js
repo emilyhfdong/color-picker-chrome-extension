@@ -1,20 +1,30 @@
 const CANVAS_ID = "html-canvas"
 const SWATCH_ID = "color-swatch"
+const SIDEPANEL_ID = "color-palette-sidepanel"
 
-const createSwatchDiv = () => {
-  const div = document.createElement("div")
-  div.id = SWATCH_ID
-  div.style.position = "fixed"
-  div.style.top = "0px"
-  div.style.left = "0px"
-  div.style.height = "50px"
-  div.style.width = "50px"
-  div.style.borderRadius = "25px"
-  div.style.zIndex = "10000000"
-  div.style.boxShadow = "0px 0px 8px 3px rgba(0, 0, 0, 0.05)"
-  div.style.backgroundColor = "white"
-  return div
-}
+const styles = `
+  #${SWATCH_ID} {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    height: 50px;
+    width: 50px;
+    border-radius: 25px;
+    z-index: 10000000;
+    box-shadow: 0px 0px 8px 3px rgba(0, 0, 0, 0.05);
+    background-color: white;
+  }
+  #${SIDEPANEL_ID} {
+    position: fixed;
+    top: 0px;
+    right: 0px;
+    height: 100vh;
+    background-color: white;
+    z-index: 1000000;
+    width: 25vw;
+    box-shadow: 5px 0px 8px 3px rgba(0, 0, 0, 0.1);
+  }
+`
 
 chrome.runtime.onMessage.addListener(() => {
   // clean up old stuff
@@ -25,8 +35,21 @@ chrome.runtime.onMessage.addListener(() => {
     }
     return
   }
+  // inject new styles
+  const styleElement = document.createElement("style")
+  styleElement.textContent = styles
+  document.head.append(styleElement)
 
-  const swatchDiv = createSwatchDiv()
+  // create sidepanel
+
+  document.body.style.width = "75vw"
+  const sidepanel = document.createElement("div")
+  sidepanel.id = SIDEPANEL_ID
+  document.body.appendChild(sidepanel)
+
+  // create swatch element
+  const swatchDiv = document.createElement("div")
+  swatchDiv.id = SWATCH_ID
   document.body.appendChild(swatchDiv)
 
   html2canvas(document.body).then((canvas) => {
