@@ -268,13 +268,9 @@ chrome.runtime.onMessage.addListener(() => {
   fontsLink.href =
     "https://fonts.googleapis.com/css2?family=Oswald&family=Roboto&display=swap"
   fontsLink.rel = "stylesheet"
-  const iconsScript = document.createElement("script")
-  iconsScript.src = "https://kit.fontawesome.com/d5c186569c.js"
-  iconsScript.crossOrigin = "anonymous"
 
   document.head.append(styleElement)
   document.head.append(fontsLink)
-  document.head.append(iconsScript)
 
   // create sidepanel
   document.body.style.width = "75vw"
@@ -289,29 +285,7 @@ chrome.runtime.onMessage.addListener(() => {
   palettesContainer.classList.add("palettes-container")
 
   sidepanel.appendChild(sidepanelHeader)
-  const addPaletteButton = document.createElement("button")
-  addPaletteButton.classList.add("add-palette-button")
-  addPaletteButton.innerText = "+"
-  addPaletteButton.addEventListener("click", () => {
-    const maxPaletteNumber = palettes
-      .map(({ name }) => name)
-      .filter((name) => name.includes("palette"))
-      .map((name) => name.split(" ")[name.split(" ").length - 1])
-      .reduce((acc, curr) => Math.max(acc, curr), 0)
-    const newPalette = { name: `palette ${maxPaletteNumber + 1}`, colors: [] }
-    const newPalettes = [newPalette, ...palettes]
 
-    chrome.storage.sync.set({ palettes: newPalettes }, () => {
-      const newPaletteDiv = createPaletteElement(
-        newPalette,
-        palettes.length,
-        newPalettes,
-        palettesContainer
-      )
-      palettesContainer.prepend(newPaletteDiv)
-    })
-  })
-  sidepanelHeader.appendChild(addPaletteButton)
   sidepanel.appendChild(palettesContainer)
 
   document.body.appendChild(sidepanel)
@@ -320,6 +294,28 @@ chrome.runtime.onMessage.addListener(() => {
   chrome.storage.sync.get(["palettes"], function (result) {
     const palettes = result.palettes || []
     renderPalettes(palettes, palettesContainer)
+    const addPaletteButton = document.createElement("button")
+    addPaletteButton.classList.add("add-palette-button")
+    addPaletteButton.innerText = "+"
+    addPaletteButton.addEventListener("click", () => {
+      const maxPaletteNumber = palettes
+        .map(({ name }) => name)
+        .filter((name) => name.includes("palette"))
+        .map((name) => name.split(" ")[name.split(" ").length - 1])
+        .reduce((acc, curr) => Math.max(acc, curr), 0)
+      const newPalette = { name: `palette ${maxPaletteNumber + 1}`, colors: [] }
+      const newPalettes = [newPalette, ...palettes]
+
+      chrome.storage.sync.set({ palettes: newPalettes }, () => {
+        const newPaletteDiv = createPaletteElement(
+          newPalette,
+          newPalettes,
+          palettesContainer
+        )
+        palettesContainer.prepend(newPaletteDiv)
+      })
+    })
+    sidepanelHeader.appendChild(addPaletteButton)
   })
 
   // create swatch element
