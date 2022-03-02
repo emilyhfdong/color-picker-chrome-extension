@@ -10,7 +10,6 @@ const styles = `
     left: 0px;
     z-index: 10000000;
   }
-
   .color-circle {
     box-shadow: 0px 0px 8px 3px rgba(0, 0, 0, 0.1);
     background-color: white;
@@ -72,12 +71,6 @@ const styles = `
   }
   .palette:hover {
     background-color: #F8F8F8;
-  }
-  .swatch-color-circle {
-    display: none;
-  }
-  .active-palette .swatch-color-circle {
-    display: inline-block;
   }
   .active-palette {
     background-color: #F8F8F8;
@@ -204,10 +197,6 @@ const createPaletteElement = (
     colorsContainer.appendChild(colorDiv)
   })
 
-  const swatchColorCircle = document.createElement("div")
-  swatchColorCircle.classList.add("color-circle", "swatch-color-circle")
-  colorsContainer.appendChild(swatchColorCircle)
-
   paletteDiv.addEventListener("click", () => {
     if (paletteDiv.classList.contains("active-palette")) {
       return
@@ -240,7 +229,7 @@ const createPaletteElement = (
           { name, colors },
           newPalettes
         )
-        colorsContainer.insertBefore(newColorDiv, swatchColorCircle)
+        colorsContainer.appendChild(newColorDiv)
       })
     }
   })
@@ -258,12 +247,6 @@ const renderPalettes = (palettes, parentDiv) => {
     })
   }
 }
-
-// TODO - remove these
-const MOCK_PALETTES = [
-  { name: "palette 1", colors: ["#F5891B", "#1C3984", "#23A0DD", "#EE3D55"] },
-  { name: "palette 2", colors: ["#EAB39D", "#E62E3B", "#C5CAB3", "#135142"] },
-]
 
 const cleanUp = () => {
   document.getElementById(CURSOR_SWATCH_ID).remove()
@@ -358,9 +341,6 @@ chrome.runtime.onMessage.addListener(() => {
         swatchDiv.style.left = ev.pageX + "px"
         swatchDiv.style.top = ev.pageY + "px"
       }
-      palettesContainer
-        .querySelectorAll(".swatch-color-circle")
-        .forEach((swatchCircle) => (swatchCircle.style.backgroundColor = color))
       swatchDiv.style.backgroundColor = color
     })
   })
