@@ -17,6 +17,7 @@ const styles = `
     width: ${SWATCH_WIDTH}px;
     border-radius: 25px;
     margin-right: 10px;
+    position: relative;
   }
   #${CANVAS_ID} {
     position: fixed;
@@ -56,9 +57,28 @@ const styles = `
     display: flex;
     flex-wrap: wrap;
   }
+  .delete-color-button {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    width: 15px;
+    height: 15px;
+    border-radius: 7.5px;
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-bottom: 1px;
+    font-size: 10pt;
+    color: #808080;
+  }
+  .delete-color-button:hover {
+    background-color: #f24e4e;
+    color: white;
+  }
 `
 
-const createPaletteElement = ({ name, colors }, idx) => {
+const createPaletteElement = ({ name, colors }, idx, palettes) => {
   const paletteTitle = document.createElement("p")
   paletteTitle.classList.add("palette-title")
   paletteTitle.innerText = name
@@ -77,14 +97,33 @@ const createPaletteElement = ({ name, colors }, idx) => {
   colors.forEach((color) => {
     const colorDiv = document.createElement("div")
     colorDiv.classList.add("color-circle")
-
     colorDiv.style.backgroundColor = color
+
+    const deleteButton = document.createElement("div")
+    deleteButton.classList.add("delete-color-button")
+    deleteButton.innerText = "x"
+    deleteButton.addEventListener("click", () => {
+      const newPalletes = palettes.map((p) => {
+        if (p.name !== name) {
+          return p
+        }
+        const newPalette = { ...p }
+        newPalette.colors = newPalette.colors.filter((c) => c !== color)
+        return newPalette
+      })
+      chrome.storage.sync.set({ palettes: newPalletes }, () =>
+        colorDiv.remove()
+      )
+    })
+    colorDiv.appendChild(deleteButton)
+
     colorsContainer.appendChild(colorDiv)
   })
 
   return paletteDiv
 }
 
+// TODO - remove these
 const MOCK_PALETTES = [
   { name: "palette 1", colors: ["#F5891B", "#1C3984", "#23A0DD", "#EE3D55"] },
   { name: "palette 2", colors: ["#EAB39D", "#E62E3B", "#C5CAB3", "#135142"] },
@@ -109,8 +148,13 @@ chrome.runtime.onMessage.addListener(() => {
   fontsLink.href =
     "https://fonts.googleapis.com/css2?family=Oswald&family=Roboto&display=swap"
   fontsLink.rel = "stylesheet"
+  const iconsScript = document.createElement("script")
+  iconsScript.src = "https://kit.fontawesome.com/d5c186569c.js"
+  iconsScript.crossOrigin = "anonymous"
+
   document.head.append(styleElement)
   document.head.append(fontsLink)
+  document.head.append(iconsScript)
 
   // create sidepanel
   document.body.style.width = "75vw"
@@ -125,7 +169,7 @@ chrome.runtime.onMessage.addListener(() => {
   chrome.storage.sync.get(["palettes"], function (result) {
     if (result.palettes?.length) {
       result.palettes.forEach((palette, idx) => {
-        createPaletteElement(palette, idx)
+        const paletteDiv = createPaletteElement(palette, idx, result.palettes)
         sidepanel.appendChild(paletteDiv)
       })
     }
