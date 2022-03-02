@@ -34,12 +34,30 @@ const styles = `
     width: 25vw;
     box-shadow: 5px 0px 8px 3px rgba(0, 0, 0, 0.06);
     font-family: 'Roboto', sans-serif;
+    font-size: 10pt;
+    overflow: scroll;
+  }
+  .sidepanel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 1rem 0 1rem;
   }
   #${SIDEPANEL_ID} h3 {
     font-weight: 400;
     letter-spacing: 0.05em;
     font-family: 'Oswald', sans-serif;
-    padding: 0 1rem 0 1rem;
+  }
+  .add-palette-button {
+    color: 808080;
+    background-color: white;
+    border: 1px solid white;
+    font-size: 18pt;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .add-palette-button:hover {
+    background-color: #F8F8F8;
   }
   .palette {
     padding: 0 1rem 1rem 1rem;
@@ -56,6 +74,7 @@ const styles = `
   .colors-container {
     display: flex;
     flex-wrap: wrap;
+    min-height: ${SWATCH_WIDTH}px;
   }
   .delete-color-button {
     position: absolute;
@@ -71,6 +90,9 @@ const styles = `
     padding-bottom: 1px;
     font-size: 10pt;
     color: #808080;
+  }
+  .hidden {
+    display: none;
   }
   .delete-color-button:hover {
     background-color: #f24e4e;
@@ -100,7 +122,7 @@ const createPaletteElement = ({ name, colors }, idx, palettes) => {
     colorDiv.style.backgroundColor = color
 
     const deleteButton = document.createElement("div")
-    deleteButton.classList.add("delete-color-button")
+    deleteButton.classList.add("delete-color-button", "hidden")
     deleteButton.innerText = "x"
     deleteButton.addEventListener("click", () => {
       const newPalletes = palettes.map((p) => {
@@ -114,6 +136,12 @@ const createPaletteElement = ({ name, colors }, idx, palettes) => {
       chrome.storage.sync.set({ palettes: newPalletes }, () =>
         colorDiv.remove()
       )
+    })
+    colorDiv.addEventListener("mouseenter", () => {
+      deleteButton.classList.remove("hidden")
+    })
+    colorDiv.addEventListener("mouseleave", () => {
+      deleteButton.classList.add("hidden")
     })
     colorDiv.appendChild(deleteButton)
 
@@ -133,6 +161,7 @@ const cleanUp = () => {
   document.getElementById(SWATCH_ID).remove()
   document.getElementById(CANVAS_ID)?.remove()
   document.getElementById(SIDEPANEL_ID)?.remove()
+  document.body.style.width = "100%"
 }
 
 chrome.runtime.onMessage.addListener(() => {
@@ -158,21 +187,53 @@ chrome.runtime.onMessage.addListener(() => {
 
   // create sidepanel
   document.body.style.width = "75vw"
+  const sidepanelHeader = document.createElement("div")
+  sidepanelHeader.classList.add("sidepanel-header")
   const sidepanelTitle = document.createElement("h3")
   sidepanelTitle.innerText = "COLOR PALETTES"
+  sidepanelHeader.appendChild(sidepanelTitle)
   const sidepanel = document.createElement("div")
   sidepanel.setAttribute("id", SIDEPANEL_ID)
-  sidepanel.appendChild(sidepanelTitle)
+  const palettesContainer = document.createElement("div")
+  palettesContainer.classList.add("palettes-container")
+
+  sidepanel.appendChild(sidepanelHeader)
+  sidepanel.appendChild(palettesContainer)
+
   document.body.appendChild(sidepanel)
 
   // fill sidepanel with saved palettes
   chrome.storage.sync.get(["palettes"], function (result) {
-    if (result.palettes?.length) {
-      result.palettes.forEach((palette, idx) => {
-        const paletteDiv = createPaletteElement(palette, idx, result.palettes)
-        sidepanel.appendChild(paletteDiv)
+    const palettes = result.palettes || []
+    if (palettes.length) {
+      palettes.forEach((palette, idx) => {
+        const paletteDiv = createPaletteElement(palette, idx, palettes)
+        palettesContainer.appendChild(paletteDiv)
       })
     }
+
+    const addPaletteButton = document.createElement("button")
+    addPaletteButton.classList.add("add-palette-button")
+    addPaletteButton.innerText = "+"
+    addPaletteButton.addEventListener("click", () => {
+      const maxPaletteNumber = palettes
+        .map(({ name }) => name)
+        .filter((name) => name.includes("palette"))
+        .map((name) => name.split(" ")[name.split(" ").length - 1])
+        .reduce((acc, curr) => Math.max(acc, curr), 0)
+      const newPalette = { name: `palette ${maxPaletteNumber + 1}`, colors: [] }
+      const newPalettes = [newPalette, ...palettes]
+
+      chrome.storage.sync.set({ palettes: newPalettes }, () => {
+        const newPaletteDiv = createPaletteElement(
+          newPalette,
+          palettes.length,
+          newPalettes
+        )
+        palettesContainer.prepend(newPaletteDiv)
+      })
+    })
+    sidepanelHeader.appendChild(addPaletteButton)
   })
 
   // create swatch element
