@@ -65,25 +65,26 @@ const styles = `
     border-top: 1px solid #F8F8F8;
     cursor: pointer;
   }
+  .palette-header {
+    display: inline-block;
+    position: relative;
+  }
   .palette:hover {
     background-color: #F8F8F8;
   }
   .active-palette {
     background-color: #F8F8F8;
+    font-weight: bold;
   }
   .colors-container {
     display: flex;
     flex-wrap: wrap;
     min-height: ${SWATCH_WIDTH}px;
   }
-  .delete-color-button {
-    position: absolute;
-    top: 0px;
-    right: 0px;
+  .delete-button {
     width: 15px;
     height: 15px;
     border-radius: 7.5px;
-    background-color: white;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -91,26 +92,66 @@ const styles = `
     font-size: 10pt;
     color: #808080;
   }
+  .delete-palette-button {
+    border: 1px solid #F8F8F8;
+    background-color: white;
+    margin-left: 2px;
+
+    position: absolute;
+    top: 3px;
+    right: -15px;
+  }
+  .delete-color-button {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    background-color: white;
+  }
   .hidden {
     display: none;
   }
-  .delete-color-button:hover {
+  .delete-button:hover {
     background-color: #f24e4e;
     color: white;
   }
 `
 
 const createPaletteElement = ({ name, colors }, idx, palettes) => {
-  const paletteTitle = document.createElement("p")
-  paletteTitle.classList.add("palette-title")
-  paletteTitle.innerText = name
-
   const paletteDiv = document.createElement("div")
   paletteDiv.classList.add("palette")
   if (idx === 0) {
     paletteDiv.classList.add("active-palette")
   }
-  paletteDiv.appendChild(paletteTitle)
+
+  const paletteTitle = document.createElement("p")
+  paletteTitle.classList.add("palette-title")
+  paletteTitle.innerText = name
+  const deletePaletteButton = document.createElement("div")
+  deletePaletteButton.classList.add(
+    "delete-button",
+    "delete-palette-button",
+    "hidden"
+  )
+  deletePaletteButton.innerText = "x"
+  deletePaletteButton.addEventListener("click", () => {
+    const newPalettes = palettes.filter((p) => p.name !== name)
+    chrome.storage.sync.set({ palettes: newPalettes }, () =>
+      paletteDiv.remove()
+    )
+    paletteDiv.remove()
+  })
+  const paletteHeader = document.createElement("div")
+  paletteHeader.classList.add("palette-header")
+  paletteHeader.addEventListener("mouseenter", () =>
+    deletePaletteButton.classList.remove("hidden")
+  )
+  paletteHeader.addEventListener("mouseleave", () =>
+    deletePaletteButton.classList.add("hidden")
+  )
+  paletteHeader.appendChild(paletteTitle)
+  paletteHeader.appendChild(deletePaletteButton)
+
+  paletteDiv.appendChild(paletteHeader)
 
   const colorsContainer = document.createElement("div")
   colorsContainer.classList.add("colors-container")
@@ -122,10 +163,10 @@ const createPaletteElement = ({ name, colors }, idx, palettes) => {
     colorDiv.style.backgroundColor = color
 
     const deleteButton = document.createElement("div")
-    deleteButton.classList.add("delete-color-button", "hidden")
+    deleteButton.classList.add("delete-color-button", "delete-button", "hidden")
     deleteButton.innerText = "x"
     deleteButton.addEventListener("click", () => {
-      const newPalletes = palettes.map((p) => {
+      const newPalettes = palettes.map((p) => {
         if (p.name !== name) {
           return p
         }
@@ -133,7 +174,7 @@ const createPaletteElement = ({ name, colors }, idx, palettes) => {
         newPalette.colors = newPalette.colors.filter((c) => c !== color)
         return newPalette
       })
-      chrome.storage.sync.set({ palettes: newPalletes }, () =>
+      chrome.storage.sync.set({ palettes: newPalettes }, () =>
         colorDiv.remove()
       )
     })
