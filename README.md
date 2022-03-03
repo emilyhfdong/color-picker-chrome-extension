@@ -1,1 +1,1 @@
-# color-picker-chrome-extension
+# 🎨 color-picker-chrome-extensions
